@@ -1,0 +1,162 @@
+version: 8
+
+# Create 10 matches for a turn
+# Usage: cat spells/02-create-matches.yaml | envsubst | charms spell check
+
+apps:
+  $00: 10/${app_id}/${app_vk}  # MATCH_NFT
+
+ins:
+  - utxo_id: ${in_utxo_0}
+    charms: {}
+
+outs:
+  # Match 0: Arsenal vs Liverpool
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 0
+        home_team: "Arsenal"
+        away_team: "Liverpool"
+        home_odds: 18000  # 1.8x
+        away_odds: 22000  # 2.2x
+        draw_odds: 32000  # 3.2x
+        result: "Pending"
+        random_seed: null
+
+  # Match 1: Manchester City vs Manchester United
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 1
+        home_team: "Manchester City"
+        away_team: "Manchester United"
+        home_odds: 15000
+        away_odds: 27000
+        draw_odds: 35000
+        result: "Pending"
+        random_seed: null
+
+  # Match 2: Chelsea vs Tottenham
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 2
+        home_team: "Chelsea"
+        away_team: "Tottenham"
+        home_odds: 19000
+        away_odds: 21000
+        draw_odds: 33000
+        result: "Pending"
+        random_seed: null
+
+  # Match 3: Newcastle vs Aston Villa
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 3
+        home_team: "Newcastle"
+        away_team: "Aston Villa"
+        home_odds: 17000
+        away_odds: 24000
+        draw_odds: 34000
+        result: "Pending"
+        random_seed: null
+
+  # Match 4: Brighton vs West Ham
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 4
+        home_team: "Brighton"
+        away_team: "West Ham"
+        home_odds: 20000
+        away_odds: 20000
+        draw_odds: 32000
+        result: "Pending"
+        random_seed: null
+
+  # Match 5: Wolves vs Nottingham Forest
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 5
+        home_team: "Wolves"
+        away_team: "Nottingham Forest"
+        home_odds: 21000
+        away_odds: 19000
+        draw_odds: 31000
+        result: "Pending"
+        random_seed: null
+
+  # Match 6: Brentford vs Fulham
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 6
+        home_team: "Brentford"
+        away_team: "Fulham"
+        home_odds: 18500
+        away_odds: 22500
+        draw_odds: 33000
+        result: "Pending"
+        random_seed: null
+
+  # Match 7: Crystal Palace vs Bournemouth
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 7
+        home_team: "Crystal Palace"
+        away_team: "Bournemouth"
+        home_odds: 19500
+        away_odds: 20500
+        draw_odds: 32000
+        result: "Pending"
+        random_seed: null
+
+  # Match 8: Leicester City vs Ipswich Town
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 8
+        home_team: "Leicester City"
+        away_team: "Ipswich Town"
+        home_odds: 16000
+        away_odds: 25000
+        draw_odds: 35000
+        result: "Pending"
+        random_seed: null
+
+  # Match 9: Everton vs Southampton
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: 9
+        home_team: "Everton"
+        away_team: "Southampton"
+        home_odds: 17500
+        away_odds: 23500
+        draw_odds: 34000
+        result: "Pending"
+        random_seed: null

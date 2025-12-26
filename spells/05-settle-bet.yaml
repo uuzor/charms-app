@@ -1,0 +1,39 @@
+version: 8
+
+# Settle a bet after match is resolved
+# Usage: cat spells/05-settle-bet.yaml | envsubst | charms spell check
+
+apps:
+  $00: t/${app_id}/${app_vk}   # LEAGUE token
+  $01: 11/${app_id}/${app_vk}  # BET_NFT
+
+ins:
+  # Bet NFT
+  - utxo_id: ${bet_utxo}
+    charms:
+      $01:
+        match_id: "${match_id}"
+        prediction: "${prediction}"
+        stake: ${stake_amount}
+        odds: ${odds}
+        bettor: "${bettor_address}"
+        has_badge: ${has_badge}
+        settled: false
+
+  # House funds for payout (if winner)
+  - utxo_id: ${house_utxo}
+    charms:
+      $00: ${house_funds}
+
+outs:
+  # If winning bet, pay bettor
+  - address: ${bettor_address}
+    charms:
+      $00: ${payout_amount}  # Calculated with odds, badge bonus, house edge
+
+  # Return remaining funds to house
+  - address: ${house_address}
+    charms:
+      $00: ${remaining_funds}
+
+  # Note: Bet NFT is burned (not in outputs) after settlement

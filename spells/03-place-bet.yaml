@@ -1,0 +1,31 @@
+version: 8
+
+# Place a bet on a match
+# Usage: cat spells/03-place-bet.yaml | envsubst | charms spell check
+
+apps:
+  $00: t/${app_id}/${app_vk}   # LEAGUE token
+  $01: 11/${app_id}/${app_vk}  # BET_NFT
+
+ins:
+  - utxo_id: ${bettor_utxo}
+    charms:
+      $00: ${bet_amount}  # LEAGUE tokens to bet
+
+outs:
+  # Bet NFT to bettor
+  - address: ${bettor_address}
+    charms:
+      $01:
+        match_id: "${match_id}"
+        prediction: "${prediction}"  # "HomeWin", "AwayWin", or "Draw"
+        stake: ${bet_amount}
+        odds: ${odds_at_bet_time}
+        bettor: "${bettor_address}"
+        has_badge: ${has_team_badge}
+        settled: false
+
+  # House collects bet (minus season pool contribution)
+  - address: ${house_address}
+    charms:
+      $00: ${bet_amount}

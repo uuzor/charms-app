@@ -1,0 +1,24 @@
+version: 8
+
+# Free season winner prediction (no cost to enter)
+# Pool is 2% of all season bets, distributed to correct predictors
+# Usage: cat spells/08-predict-season-winner.yaml | envsubst | charms spell check
+
+apps:
+  $00: 11/${app_id}/${app_vk}  # Using BET_NFT for predictions too
+
+ins:
+  - utxo_id: ${predictor_utxo}
+    charms: {}
+
+outs:
+  - address: ${predictor_address}
+    charms:
+      $00:
+        match_id: "season_${season_id}"  # Special format for season bets
+        prediction: "HomeWin"  # Reusing enum, but storing team_id in stake field
+        stake: ${predicted_team_id}  # 0-19 for the team
+        odds: 0  # Free to enter
+        bettor: "${predictor_address}"
+        has_badge: false
+        settled: false

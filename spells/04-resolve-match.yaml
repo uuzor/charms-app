@@ -1,0 +1,62 @@
+version: 8
+
+# Resolve a match using transaction hash as randomness
+# Usage: cat spells/04-resolve-match.yaml | envsubst | charms spell check
+
+apps:
+  $00: 10/${app_id}/${app_vk}  # MATCH_NFT
+  $01: 13/${app_id}/${app_vk}  # SEASON_NFT
+
+ins:
+  # Input pending match
+  - utxo_id: ${match_utxo}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: ${match_id}
+        home_team: "${home_team}"
+        away_team: "${away_team}"
+        home_odds: ${home_odds}
+        away_odds: ${away_odds}
+        draw_odds: ${draw_odds}
+        result: "Pending"
+        random_seed: null
+
+  # Input season state
+  - utxo_id: ${season_utxo}
+    charms:
+      $01:
+        season_id: "${season_id}"
+        current_turn: ${turn_number}
+        team_scores: ${current_scores}
+        total_bets_collected: ${total_bets}
+        season_pool: ${pool_amount}
+        is_finished: false
+
+outs:
+  # Output resolved match
+  - address: ${match_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        turn: ${turn_number}
+        match_id: ${match_id}
+        home_team: "${home_team}"
+        away_team: "${away_team}"
+        home_odds: ${home_odds}
+        away_odds: ${away_odds}
+        draw_odds: ${draw_odds}
+        result: "${result}"  # Determined by randomness
+        random_seed: "${tx_hash}"
+
+  # Output updated season state
+  - address: ${house_address}
+    charms:
+      $01:
+        season_id: "${season_id}"
+        current_turn: ${turn_number}
+        team_scores: ${updated_scores}  # Add 3 points for win, 1 for draw
+        total_bets_collected: ${total_bets}
+        season_pool: ${pool_amount}
+        is_finished: false

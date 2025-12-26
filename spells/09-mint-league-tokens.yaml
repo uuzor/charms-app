@@ -1,0 +1,30 @@
+version: 8
+
+# Mint LEAGUE tokens (controlled by house)
+# 30% reserved for airdrop to early users
+# Usage: cat spells/09-mint-league-tokens.yaml | envsubst | charms spell check
+
+apps:
+  $00: 14/${app_id}/${app_vk}  # HOUSE_NFT
+  $01: t/${app_id}/${app_vk}   # LEAGUE token
+
+ins:
+  # House NFT for control
+  - utxo_id: ${house_nft_utxo}
+    charms:
+      $00:
+        total_league_supply: ${current_supply}
+        airdrop_remaining: ${airdrop_amount}
+
+outs:
+  # Minted LEAGUE tokens
+  - address: ${recipient_address}
+    charms:
+      $01: ${mint_amount}
+
+  # Updated house NFT
+  - address: ${house_address}
+    charms:
+      $00:
+        total_league_supply: ${new_supply}
+        airdrop_remaining: ${new_airdrop_remaining}

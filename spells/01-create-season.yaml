@@ -1,0 +1,25 @@
+version: 8
+
+# Create a new Premier League season
+# Usage: export season_id=$(uuidgen) && cat spells/01-create-season.yaml | envsubst | charms spell check
+
+apps:
+  $00: 13/${app_id}/${app_vk}  # SEASON_NFT
+
+private_inputs:
+  $00: "${in_utxo_0}"
+
+ins:
+  - utxo_id: ${in_utxo_0}
+    charms: {}
+
+outs:
+  - address: ${house_address}
+    charms:
+      $00:
+        season_id: "${season_id}"
+        current_turn: 0
+        team_scores: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        total_bets_collected: 0
+        season_pool: 0
+        is_finished: false

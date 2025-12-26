@@ -1,0 +1,41 @@
+version: 8
+
+# Trade a team badge on the marketplace (2.5% fee)
+# Usage: cat spells/07-trade-badge.yaml | envsubst | charms spell check
+
+apps:
+  $00: t/${app_id}/${app_vk}   # LEAGUE token for payment
+  $01: 12/${app_id}/${app_vk}  # BADGE_NFT
+
+ins:
+  # Seller's badge
+  - utxo_id: ${seller_badge_utxo}
+    charms:
+      $01:
+        team_name: "${team_name}"
+        team_id: ${team_id}
+        bonus_bps: 500
+
+  # Buyer's LEAGUE tokens
+  - utxo_id: ${buyer_utxo}
+    charms:
+      $00: ${sale_price}
+
+outs:
+  # Badge to buyer
+  - address: ${buyer_address}
+    charms:
+      $01:
+        team_name: "${team_name}"
+        team_id: ${team_id}
+        bonus_bps: 500
+
+  # Payment to seller (97.5%)
+  - address: ${seller_address}
+    charms:
+      $00: ${seller_amount}  # sale_price * 0.975
+
+  # Marketplace fee (2.5%)
+  - address: ${house_address}
+    charms:
+      $00: ${marketplace_fee}  # sale_price * 0.025
