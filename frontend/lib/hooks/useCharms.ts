@@ -1,16 +1,24 @@
 import { useState, useEffect } from "react";
-import { extractCharmsForWallet } from "charms-js";
+import { extractAndVerifySpell } from "charms-js";
 
 export interface CharmData {
-  app: string;
-  data: any;
-  amount?: number;
+  txid: string;
+  outputIndex: number;
+  address: string;
+  amount: number;
+  appId: string;
+  version: number;
+  metadata?: {
+    ticker?: string;
+    name?: string;
+    description?: string;
+    image?: string;
+  };
+  app: Record<string, any>;
 }
 
 export function useCharms(
   txHex?: string,
-  txId?: string,
-  walletOutpoints?: string[],
   network: "mainnet" | "testnet4" = "testnet4"
 ) {
   const [charms, setCharms] = useState<CharmData[]>([]);
@@ -18,20 +26,20 @@ export function useCharms(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!txHex || !txId || !walletOutpoints) return;
+    if (!txHex) return;
 
     const extractCharms = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const result = await extractCharmsForWallet(
-          txHex,
-          txId,
-          walletOutpoints,
-          network
-        );
-        setCharms(result || []);
+        const result = await extractAndVerifySpell(txHex, network);
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to extract charms");
+        }
+
+        setCharms(result.charms || []);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -40,9 +48,27 @@ export function useCharms(
     };
 
     extractCharms();
-  }, [txHex, txId, walletOutpoints, network]);
+  }, [txHex, network]);
 
   return { charms, loading, error };
+}
+
+// Fetch transaction hex from mempool.space
+export async function fetchTransactionHex(
+  txid: string,
+  network: "mainnet" | "testnet4" = "testnet4"
+): Promise<string> {
+  const apiUrl =
+    network === "mainnet"
+      ? `https://mempool.space/api/tx/${txid}/hex`
+      : `https://mempool.space/testnet4/api/tx/${txid}/hex`;
+
+  const response = await fetch(apiUrl);
+  if (!response.ok) {
+    throw new Error("Transaction not found");
+  }
+
+  return response.text();
 }
 
 // Helper to parse match data from charm

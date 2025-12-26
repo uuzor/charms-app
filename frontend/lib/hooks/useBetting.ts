@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { extractCharmsForWallet } from "charms-js";
+import { extractAndVerifySpell } from "charms-js";
 import { BetData, MatchData, MatchResult } from "../types";
 import { calculatePayout } from "../utils";
+import { fetchTransactionHex } from "./useCharms";
 
 export function useBetting() {
   const [userBets, setUserBets] = useState<BetData[]>([]);
@@ -67,14 +68,19 @@ export function useBetting() {
       // const signedTx = await wallet.signTransaction(tx);
       // const txid = await broadcastTransaction(signedTx);
       //
-      // // Extract charm from transaction
+      // // Extract charms from transaction
       // const txHex = signedTx.toHex();
-      // const charms = await extractCharmsForWallet(
-      //   txHex,
-      //   txid,
-      //   [wallet.address],
-      //   "testnet4"
-      // );
+      // const result = await extractAndVerifySpell(txHex, "testnet4");
+      //
+      // if (result.success) {
+      //   // Filter for Bet NFT charms (tag 11 or check appId)
+      //   const betCharms = result.charms.filter(c =>
+      //     c.appId.includes("11/") || c.app.bet_data
+      //   );
+      //   // Parse and use bet charm data
+      // } else {
+      //   throw new Error(result.error || "Failed to extract bet charm");
+      // }
 
       // Simulate transaction for demo
       await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -119,7 +125,7 @@ export function useBetting() {
     try {
       // Real implementation:
       // 1. Query Bitcoin mempool/indexer for transactions to walletAddress
-      // 2. Extract charms from those transactions
+      // 2. Extract charms from those transactions using extractAndVerifySpell
       // 3. Filter for Bet NFT charms (tag 11)
       // 4. Parse bet data
       //
@@ -127,16 +133,18 @@ export function useBetting() {
       // const bets: BetData[] = [];
       //
       // for (const tx of txs) {
-      //   const txHex = await fetchTransactionHex(tx.txid);
-      //   const charms = await extractCharmsForWallet(
-      //     txHex,
-      //     tx.txid,
-      //     [walletAddress],
-      //     "testnet4"
-      //   );
+      //   const txHex = await fetchTransactionHex(tx.txid, "testnet4");
+      //   const result = await extractAndVerifySpell(txHex, "testnet4");
       //
-      //   const betCharms = charms.filter(c => c.app.startsWith("11/"));
-      //   bets.push(...betCharms.map(c => parseBetCharm(c.data)));
+      //   if (result.success) {
+      //     // Filter for Bet NFT charms (tag 11 or check appId)
+      //     const betCharms = result.charms.filter(c =>
+      //       c.appId.includes("11/") || c.app.bet_data
+      //     );
+      //     // Filter for charms owned by this wallet address
+      //     const userBetCharms = betCharms.filter(c => c.address === walletAddress);
+      //     bets.push(...userBetCharms.map(c => parseBetCharm(c.app)));
+      //   }
       // }
       //
       // setUserBets(bets);

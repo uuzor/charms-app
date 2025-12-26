@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { extractCharmsForWallet } from "charms-js";
+import { extractAndVerifySpell } from "charms-js";
 import { MatchData } from "../types";
 import { TEAMS } from "../utils";
-import { parseMatchCharm } from "./useCharms";
+import { parseMatchCharm, fetchTransactionHex } from "./useCharms";
 
 // Fetch matches from Charms contract using Bitcoin transactions
 export function useMatches(seasonId: string, turn: number) {
@@ -16,26 +16,25 @@ export function useMatches(seasonId: string, turn: number) {
       setError(null);
 
       try {
-        // TODO: Fetch actual Bitcoin transactions containing Match NFTs
-        // For now, use mock data until we have a transaction indexer
-        // In production, this would fetch from:
-        // 1. Bitcoin mempool API (mempool.space)
-        // 2. Custom Charms indexer
-        // 3. Or directly from Bitcoin Core RPC
-
-        // Example of how it would work with real data:
-        // const txHex = await fetchTransactionHex(matchTxId);
-        // const charms = await extractCharmsForWallet(
-        //   txHex,
-        //   matchTxId,
-        //   walletOutpoints,
-        //   "testnet4"
-        // );
+        // Real implementation example:
+        // 1. Fetch transaction IDs containing Match NFTs from indexer
+        // const matchTxIds = await fetch(`/api/matches?season=${seasonId}&turn=${turn}`);
         //
-        // const matchCharms = charms
-        //   .filter(charm => charm.app.startsWith("10/")) // MATCH_NFT tag
-        //   .map(charm => parseMatchCharm(charm.data))
-        //   .filter(Boolean);
+        // 2. For each transaction, extract charms
+        // const allMatches: MatchData[] = [];
+        // for (const txid of matchTxIds) {
+        //   const txHex = await fetchTransactionHex(txid, "testnet4");
+        //   const result = await extractAndVerifySpell(txHex, "testnet4");
+        //
+        //   if (result.success) {
+        //     // Filter for Match NFT charms (check appId pattern)
+        //     const matchCharms = result.charms.filter(c =>
+        //       c.appId.includes("match") || c.app.match_data
+        //     );
+        //     allMatches.push(...matchCharms.map(c => parseMatchCharm(c.app)));
+        //   }
+        // }
+        // setMatches(allMatches);
 
         // Mock data for demo - replace with real Charms extraction
         const mockMatches: MatchData[] = [

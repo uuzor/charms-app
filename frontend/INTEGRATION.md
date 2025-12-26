@@ -74,7 +74,8 @@ export async function connectUnisatWallet() {
 // lib/hooks/useWallet.ts
 import { useState } from "react";
 import { connectLeatherWallet } from "../wallet/leather";
-import { extractCharmsForWallet } from "charms-js";
+import { extractAndVerifySpell } from "charms-js";
+import { fetchTransactionHex } from "./useCharms";
 
 export function useWallet() {
   const [connected, setConnected] = useState(false);
@@ -102,24 +103,29 @@ export function useWallet() {
 
     // 2. Extract charms from each transaction
     for (const tx of txs) {
-      const txHex = await fetchTransactionHex(tx.txid);
-      const charms = await extractCharmsForWallet(
-        txHex,
-        tx.txid,
-        [walletAddress],
-        "testnet4"
-      );
+      const txHex = await fetchTransactionHex(tx.txid, "testnet4");
+      const result = await extractAndVerifySpell(txHex, "testnet4");
+
+      if (!result.success) {
+        console.error("Failed to extract charms:", result.error);
+        continue;
+      }
 
       // 3. Parse charms by type
-      const leagueTokens = charms.filter(c => c.app.startsWith("t/"));
-      const badges = charms.filter(c => c.app.startsWith("12/"));
-      const bets = charms.filter(c => c.app.startsWith("11/"));
+      const leagueTokens = result.charms.filter(c => c.appId.includes("t/"));
+      const badges = result.charms.filter(c => c.appId.includes("12/"));
+      const bets = result.charms.filter(c => c.appId.includes("11/"));
+
+      // Filter for charms owned by this wallet
+      const userLeagueTokens = leagueTokens.filter(c => c.address === walletAddress);
+      const userBadges = badges.filter(c => c.address === walletAddress);
+      const userBets = bets.filter(c => c.address === walletAddress);
 
       // Update state with user's assets
       setBalance({
-        league: leagueTokens.reduce((sum, t) => sum + t.amount, 0),
-        badges: badges.map(b => parseBadgeCharm(b.data)),
-        bets: bets.map(b => parseBetCharm(b.data)),
+        league: userLeagueTokens.reduce((sum, t) => sum + t.amount, 0),
+        badges: userBadges.map(b => parseBadgeCharm(b.app)),
+        bets: userBets.map(b => parseBetCharm(b.app)),
       });
     }
   };
@@ -142,7 +148,7 @@ export function useWallet() {
 ```typescript
 // lib/transactions/betting.ts
 import * as bitcoin from "bitcoinjs-lib";
-import { extractCharmsForWallet } from "charms-js";
+import { extractAndVerifySpell } from "charms-js";
 
 export async function createBetTransaction(
   wallet: any,
@@ -209,16 +215,20 @@ export async function createBetTransaction(
   const txid = await broadcastTransaction(txHex);
 
   // 7. Extract and return charms
-  const charms = await extractCharmsForWallet(
-    txHex,
-    txid,
-    [wallet.address],
-    "testnet4"
+  const result = await extractAndVerifySpell(txHex, "testnet4");
+
+  if (!result.success) {
+    throw new Error(result.error || "Failed to extract bet charm");
+  }
+
+  // Filter for user's bet charms
+  const betCharms = result.charms.filter(c =>
+    c.address === wallet.address && c.appId.includes("11/")
   );
 
   return {
     txid,
-    charms,
+    charms: betCharms,
   };
 }
 
@@ -288,17 +298,18 @@ export function useMatches(seasonId: string, turn: number) {
         // Extract charms from each transaction
         const matches: MatchData[] = [];
         for (const tx of matchTxs) {
-          const txHex = await fetchTransactionHex(tx.txid);
-          const charms = await extractCharmsForWallet(
-            txHex,
-            tx.txid,
-            [], // Empty since we want all matches, not filtered by wallet
-            "testnet4"
-          );
+          const txHex = await fetchTransactionHex(tx.txid, "testnet4");
+          const result = await extractAndVerifySpell(txHex, "testnet4");
 
-          const matchCharms = charms
-            .filter(c => c.app.startsWith("10/"))
-            .map(c => parseMatchCharm(c.data));
+          if (!result.success) {
+            console.error("Failed to extract match charms:", result.error);
+            continue;
+          }
+
+          // Filter for Match NFT charms (tag 10 or check appId)
+          const matchCharms = result.charms
+            .filter(c => c.appId.includes("10/") || c.app.match_data)
+            .map(c => parseMatchCharm(c.app));
 
           matches.push(...matchCharms);
         }
