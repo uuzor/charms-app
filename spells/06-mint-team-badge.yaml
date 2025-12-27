@@ -1,0 +1,23 @@
+version: 8
+
+# Mint a team badge NFT (one per team)
+# Usage: cat spells/06-mint-team-badge.yaml | envsubst | charms spell check
+
+apps:
+  $00: n/${app_id}/${app_vk}   # Base NFT for minting control
+  $01: 12/${app_id}/${app_vk}  # BADGE_NFT
+
+private_inputs:
+  $00: "${in_utxo_0}"
+
+ins:
+  - utxo_id: ${in_utxo_0}
+    charms: {}
+
+outs:
+  - address: ${recipient_address}
+    charms:
+      $01:
+        team_name: "${team_name}"  # e.g., "Arsenal"
+        team_id: ${team_id}  # 0-19
+        bonus_bps: 500  # 5% better odds for this team's matches
