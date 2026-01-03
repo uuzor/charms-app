@@ -165,19 +165,6 @@ export function useMatches(seasonId: string, turn: number) {
   return { matches, loading, error };
 }
 
-// Helper to fetch transaction hex from mempool.space API
-export async function fetchTransactionHex(txid: string, network: "testnet4" | "mainnet" = "testnet4"): Promise<string> {
-  const baseUrl = network === "testnet4"
-    ? "https://mempool.space/testnet4/api"
-    : "https://mempool.space/api";
-
-  const response = await fetch(`${baseUrl}/tx/${txid}/hex`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch transaction: ${response.statusText}`);
-  }
-  return response.text();
-}
-
 export function useMatchCountdown() {
   const [timeUntilNext, setTimeUntilNext] = useState(15 * 60); // 15 minutes in seconds
 
