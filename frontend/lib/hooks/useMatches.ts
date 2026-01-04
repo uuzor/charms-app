@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { extractAndVerifySpell } from "charms-js";
 import { parseMatchCharm, fetchTransactionHex } from "./useCharms";
-import { MatchData as MatchCharmData } from "../types/betslip";
+import { MatchData as MatchCharmData, MatchResult } from "../types/betslip";
 
 // Convert lib/types format to old MatchData format (for backward compatibility)
 interface MatchData {
@@ -13,7 +13,7 @@ interface MatchData {
   homeOdds: number;
   awayOdds: number;
   drawOdds: number;
-  result: string;
+  result: MatchResult;
 }
 
 // Fetch matches from Charms contract using Bitcoin transactions
@@ -56,7 +56,12 @@ export function useMatches(seasonId: string, turn: number) {
           );
 
           for (const charm of matchCharms) {
-            const matchData: MatchCharmData = parseMatchCharm(charm.app);
+            const matchData = parseMatchCharm(charm.app);
+
+            if (!matchData) {
+              console.error("Failed to parse match charm data");
+              continue;
+            }
 
             // Convert to UI format
             allMatches.push({
