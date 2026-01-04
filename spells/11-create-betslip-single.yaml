@@ -1,0 +1,66 @@
+version: 8
+
+# Place a single bet betslip
+apps:
+  $00: t/${app_id}/${app_vk}    # LEAGUE token
+  $01: 15/${app_id}/${app_vk}   # BETSLIP_NFT
+  $02: 16/${app_id}/${app_vk}   # LIQUIDITY_POOL_NFT
+
+ins:
+  # Bettor's tokens
+  - utxo_id: ${bettor_token_utxo}
+    charms:
+      $00: ${total_stake}
+
+  # Liquidity pool state (to update)
+  - utxo_id: ${pool_utxo}
+    charms:
+      $02:
+        pool_id: "${pool_id}"
+        total_liquidity: ${current_total_liquidity}
+        total_bets_in_play: ${current_bets_in_play}
+        total_paid_out: ${current_paid_out}
+        total_collected: ${current_collected}
+        protocol_revenue: ${current_protocol_revenue}
+        house_balance: ${current_house_balance}
+        is_active: true
+        min_liquidity: ${min_liquidity}
+
+outs:
+  # Betslip NFT to bettor (proof of bet)
+  - address: ${bettor_address}
+    charms:
+      $01:
+        slip_id: "${slip_id}"
+        bettor: "${bettor_address}"
+        bet_type: "Single"
+        bets:
+          - match_id: "${match_id}"
+            prediction: "${prediction}"  # HomeWin, AwayWin, or Draw
+            odds: ${odds}
+        total_stake: ${total_stake}
+        stake_per_bet: ${total_stake}
+        potential_payout: ${potential_payout}
+        badges: ${badges_array}  # e.g., [0, 11] for Arsenal and Liverpool badges
+        settled: false
+        payout_amount: 0
+        timestamp: ${timestamp}
+
+  # Updated liquidity pool (bets now in play)
+  - address: ${house_address}
+    charms:
+      $02:
+        pool_id: "${pool_id}"
+        total_liquidity: ${current_total_liquidity}
+        total_bets_in_play: ${new_bets_in_play}  # += total_stake
+        total_paid_out: ${current_paid_out}
+        total_collected: ${new_collected}  # += total_stake
+        protocol_revenue: ${current_protocol_revenue}
+        house_balance: ${current_house_balance}
+        is_active: true
+        min_liquidity: ${min_liquidity}
+
+  # Tokens to house pool
+  - address: ${house_address}
+    charms:
+      $00: ${total_stake}

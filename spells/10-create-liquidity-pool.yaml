@@ -1,0 +1,31 @@
+version: 8
+
+# Create initial liquidity pool for the betting platform
+apps:
+  $00: t/${app_id}/${app_vk}    # LEAGUE token
+  $01: 16/${app_id}/${app_vk}   # LIQUIDITY_POOL_NFT
+
+ins:
+  - utxo_id: ${in_utxo_0}
+    charms:
+      $00: ${initial_liquidity}  # Protocol funds pool with tokens
+
+outs:
+  # Liquidity pool NFT to house address
+  - address: ${house_address}
+    charms:
+      $01:
+        pool_id: "${pool_id}"
+        total_liquidity: ${initial_liquidity}
+        total_bets_in_play: 0
+        total_paid_out: 0
+        total_collected: 0
+        protocol_revenue: 0
+        house_balance: ${initial_liquidity}
+        is_active: true
+        min_liquidity: ${min_liquidity}  # Safety threshold (e.g., 50% of initial)
+
+  # Tokens transferred to pool (locked in pool UTXO)
+  - address: ${house_address}
+    charms:
+      $00: ${initial_liquidity}

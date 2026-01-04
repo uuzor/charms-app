@@ -75,16 +75,19 @@ export async function fetchTransactionHex(
 export function parseMatchCharm(charmData: any) {
   try {
     return {
-      seasonId: charmData.season_id,
+      season_id: charmData.season_id,
       turn: charmData.turn,
-      matchId: charmData.match_id,
-      homeTeam: charmData.home_team,
-      awayTeam: charmData.away_team,
-      homeOdds: charmData.home_odds,
-      awayOdds: charmData.away_odds,
-      drawOdds: charmData.draw_odds,
+      match_id: charmData.match_id,
+      home_team: charmData.home_team,
+      away_team: charmData.away_team,
+      home_odds: charmData.home_odds,
+      away_odds: charmData.away_odds,
+      draw_odds: charmData.draw_odds,
       result: charmData.result,
-      randomSeed: charmData.random_seed,
+      random_seed: charmData.random_seed || null,
+      total_home_bets: charmData.total_home_bets || 0,
+      total_away_bets: charmData.total_away_bets || 0,
+      total_draw_bets: charmData.total_draw_bets || 0,
     };
   } catch {
     return null;

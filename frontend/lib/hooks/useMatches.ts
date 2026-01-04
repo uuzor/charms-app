@@ -1,8 +1,20 @@
 import { useState, useEffect } from "react";
 import { extractAndVerifySpell } from "charms-js";
-import { MatchData } from "../types";
-import { TEAMS } from "../utils";
 import { parseMatchCharm, fetchTransactionHex } from "./useCharms";
+import { MatchData as MatchCharmData } from "../types/betslip";
+
+// Convert lib/types format to old MatchData format (for backward compatibility)
+interface MatchData {
+  seasonId: string;
+  turn: number;
+  matchId: number;
+  homeTeam: string;
+  awayTeam: string;
+  homeOdds: number;
+  awayOdds: number;
+  drawOdds: number;
+  result: string;
+}
 
 // Fetch matches from Charms contract using Bitcoin transactions
 export function useMatches(seasonId: string, turn: number) {
@@ -16,28 +28,58 @@ export function useMatches(seasonId: string, turn: number) {
       setError(null);
 
       try {
-        // Real implementation example:
-        // 1. Fetch transaction IDs containing Match NFTs from indexer
-        // const matchTxIds = await fetch(`/api/matches?season=${seasonId}&turn=${turn}`);
-        //
-        // 2. For each transaction, extract charms
-        // const allMatches: MatchData[] = [];
-        // for (const txid of matchTxIds) {
-        //   const txHex = await fetchTransactionHex(txid, "testnet4");
-        //   const result = await extractAndVerifySpell(txHex, "testnet4");
-        //
-        //   if (result.success) {
-        //     // Filter for Match NFT charms (check appId pattern)
-        //     const matchCharms = result.charms.filter(c =>
-        //       c.appId.includes("match") || c.app.match_data
-        //     );
-        //     allMatches.push(...matchCharms.map(c => parseMatchCharm(c.app)));
-        //   }
-        // }
-        // setMatches(allMatches);
+        // Real implementation:
+        // 1. Query indexer API for match transactions
+        const response = await fetch(`/api/matches?season=${seasonId}&turn=${turn}`);
 
-        // Mock data for demo - replace with real Charms extraction
-        const mockMatches: MatchData[] = [
+        if (!response.ok) {
+          throw new Error("Failed to fetch matches from indexer");
+        }
+
+        const matchTxIds: string[] = await response.json();
+
+        // 2. Extract charms from each transaction
+        const allMatches: MatchData[] = [];
+
+        for (const txid of matchTxIds) {
+          const txHex = await fetchTransactionHex(txid, "testnet4");
+          const result = await extractAndVerifySpell(txHex, "testnet4");
+
+          if (!result.success) {
+            console.error(`Failed to extract charms from ${txid}:`, result.error);
+            continue;
+          }
+
+          // Filter for Match NFT charms (tag 10 or appId includes "10/")
+          const matchCharms = result.charms.filter(c =>
+            c.appId.includes("10/") || c.app.match_data
+          );
+
+          for (const charm of matchCharms) {
+            const matchData: MatchCharmData = parseMatchCharm(charm.app);
+
+            // Convert to UI format
+            allMatches.push({
+              seasonId: matchData.season_id,
+              turn: matchData.turn,
+              matchId: matchData.match_id,
+              homeTeam: matchData.home_team,
+              awayTeam: matchData.away_team,
+              homeOdds: matchData.home_odds,
+              awayOdds: matchData.away_odds,
+              drawOdds: matchData.draw_odds,
+              result: matchData.result,
+            });
+          }
+        }
+
+        setMatches(allMatches);
+      } catch (err) {
+        console.error("Error fetching matches:", err);
+
+        // Fallback to demo data if indexer not available
+        console.warn("Using fallback demo data - indexer not available");
+        const fallbackMatches: MatchData[] = [
         {
           seasonId,
           turn,
@@ -150,9 +192,7 @@ export function useMatches(seasonId: string, turn: number) {
         },
       ];
 
-        setMatches(mockMatches);
-      } catch (err) {
-        console.error("Error fetching matches:", err);
+        setMatches(fallbackMatches);
         setError(err as Error);
       } finally {
         setLoading(false);
