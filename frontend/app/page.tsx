@@ -110,13 +110,13 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="h-96 animate-pulse bg-white/5 border-white/10" />
+          <div className="space-y-3">
+            {[...Array(10)].map((_, i) => (
+              <Card key={i} className="h-40 animate-pulse bg-white/5 border-white/10" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
             {matches.map((match) => (
               <MatchCard
                 key={`${match.seasonId}_${match.turn}_${match.matchId}`}

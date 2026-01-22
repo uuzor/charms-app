@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, TrendingUp, Plus, Lock } from "lucide-react";
-import { Card, CardContent, CardHeader } from "./ui/card";
-import { Button } from "./ui/button";
+import { Clock, Trophy, Lock, Check } from "lucide-react";
+import { Card } from "./ui/card";
 import { MatchData, MatchResult } from "@/lib/types";
 import { formatOdds, formatTokenAmount, cn } from "@/lib/utils";
 import { useWallet } from "@/lib/hooks/useWallet";
@@ -80,113 +79,139 @@ export function MatchCard({ match, onAddToBetslip }: MatchCardProps) {
   const hasLockedOdds = match.lockedOdds && match.lockedOdds.locked;
 
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Clock className="h-4 w-4" />
-            <span>Match {match.matchId + 1}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* V2: Locked odds indicator */}
-            {hasLockedOdds && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                <Lock className="h-3 w-3" />
-                Locked Odds
-              </span>
-            )}
+    <Card className="bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-300 overflow-hidden">
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-white/40">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Match {match.matchId + 1}</span>
+            </div>
             {match.result === "Pending" && (
-              <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                Live Betting
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded-full">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                Live
               </span>
             )}
           </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Teams */}
-        <div className="grid grid-cols-3 gap-4 items-center">
-          <div className="text-center">
-            <div className="text-lg font-semibold">{match.homeTeam}</div>
-            {hasHomeBadge && (
-              <span className="text-xs text-green-600">+5% Bonus</span>
-            )}
-          </div>
-          <div className="text-center text-2xl font-bold text-gray-300">VS</div>
-          <div className="text-center">
-            <div className="text-lg font-semibold">{match.awayTeam}</div>
-            {hasAwayBadge && (
-              <span className="text-xs text-green-600">+5% Bonus</span>
-            )}
-          </div>
+          {/* V2: Locked odds indicator */}
+          {hasLockedOdds && (
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-medium rounded-full">
+              <Lock className="h-3 w-3" />
+              <span>Locked</span>
+            </div>
+          )}
         </div>
 
-        {/* Odds */}
+        {/* Teams Row */}
+        <div className="flex items-center justify-between mb-5">
+          {/* Home Team */}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-white/40" />
+              <div>
+                <div className="text-base font-semibold text-white">{match.homeTeam}</div>
+                {hasHomeBadge && (
+                  <span className="text-xs text-green-400 font-medium">+5% Bonus</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* VS Badge */}
+          <div className="px-4">
+            <span className="text-white/20 font-bold text-sm">VS</span>
+          </div>
+
+          {/* Away Team */}
+          <div className="flex-1 text-right">
+            <div className="flex items-center gap-2 justify-end">
+              <div>
+                <div className="text-base font-semibold text-white">{match.awayTeam}</div>
+                {hasAwayBadge && (
+                  <span className="text-xs text-green-400 font-medium">+5% Bonus</span>
+                )}
+              </div>
+              <Trophy className="h-4 w-4 text-white/40" />
+            </div>
+          </div>
+        </div>
+
+        {/* Odds Buttons Row */}
         <div className="grid grid-cols-3 gap-2">
+          {/* Home Button */}
           <button
             onClick={() => handleAddToBetslip("HomeWin")}
             className={cn(
-              "rounded-lg border p-3 transition-all hover:border-yellow-400 hover:shadow-md group",
+              "relative group px-4 py-3 rounded-lg font-medium transition-all duration-200",
               selectedPrediction === "HomeWin"
-                ? "border-yellow-400 bg-gradient-to-br from-yellow-400 to-orange-500 text-black shadow-lg"
-                : "border-gray-200 bg-white"
+                ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-black shadow-lg shadow-yellow-500/20 scale-[1.02]"
+                : "bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-yellow-400/50"
             )}
           >
-            <div className="text-xs text-gray-500 group-hover:text-gray-700">Home</div>
-            <div className="text-lg font-bold">{getOddsDisplay("HomeWin")}</div>
-            <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Plus className="w-4 h-4 mx-auto" />
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs opacity-70">Home</span>
+              <span className="text-lg font-bold">{getOddsDisplay("HomeWin")}</span>
+              {selectedPrediction === "HomeWin" && (
+                <Check className="w-4 h-4 absolute top-1 right-1" />
+              )}
             </div>
           </button>
 
+          {/* Draw Button */}
           <button
             onClick={() => handleAddToBetslip("Draw")}
             className={cn(
-              "rounded-lg border p-3 transition-all hover:border-yellow-400 hover:shadow-md group",
+              "relative group px-4 py-3 rounded-lg font-medium transition-all duration-200",
               selectedPrediction === "Draw"
-                ? "border-yellow-400 bg-gradient-to-br from-yellow-400 to-orange-500 text-black shadow-lg"
-                : "border-gray-200 bg-white"
+                ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-black shadow-lg shadow-yellow-500/20 scale-[1.02]"
+                : "bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-yellow-400/50"
             )}
           >
-            <div className="text-xs text-gray-500 group-hover:text-gray-700">Draw</div>
-            <div className="text-lg font-bold">{getOddsDisplay("Draw")}</div>
-            <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Plus className="w-4 h-4 mx-auto" />
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs opacity-70">Draw</span>
+              <span className="text-lg font-bold">{getOddsDisplay("Draw")}</span>
+              {selectedPrediction === "Draw" && (
+                <Check className="w-4 h-4 absolute top-1 right-1" />
+              )}
             </div>
           </button>
 
+          {/* Away Button */}
           <button
             onClick={() => handleAddToBetslip("AwayWin")}
             className={cn(
-              "rounded-lg border p-3 transition-all hover:border-yellow-400 hover:shadow-md group",
+              "relative group px-4 py-3 rounded-lg font-medium transition-all duration-200",
               selectedPrediction === "AwayWin"
-                ? "border-yellow-400 bg-gradient-to-br from-yellow-400 to-orange-500 text-black shadow-lg"
-                : "border-gray-200 bg-white"
+                ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-black shadow-lg shadow-yellow-500/20 scale-[1.02]"
+                : "bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-yellow-400/50"
             )}
           >
-            <div className="text-xs text-gray-500 group-hover:text-gray-700">Away</div>
-            <div className="text-lg font-bold">{getOddsDisplay("AwayWin")}</div>
-            <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Plus className="w-4 h-4 mx-auto" />
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs opacity-70">Away</span>
+              <span className="text-lg font-bold">{getOddsDisplay("AwayWin")}</span>
+              {selectedPrediction === "AwayWin" && (
+                <Check className="w-4 h-4 absolute top-1 right-1" />
+              )}
             </div>
           </button>
         </div>
 
-        {/* Selected Indicator */}
+        {/* Selected Success Message */}
         {selectedPrediction && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="mt-3 flex items-center gap-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg"
           >
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-sm text-green-700 font-medium">
+            <Check className="w-4 h-4 text-green-400" />
+            <span className="text-sm text-green-400 font-medium">
               Added to betslip
             </span>
           </motion.div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }
