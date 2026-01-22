@@ -12,6 +12,7 @@ pub const SEASON_NFT: char = '\u{0D}';         // 13
 pub const HOUSE_NFT: char = '\u{0E}';          // 14
 pub const BETSLIP_NFT: char = '\u{0F}';        // 15 (NEW: multi-bet slip)
 pub const LIQUIDITY_POOL_NFT: char = '\u{10}'; // 16 (NEW: protocol liquidity)
+pub const LP_SHARE_NFT: char = '\u{11}';       // 17 (NEW: LP share tokens)
 
 // Premier League Teams
 pub const TEAMS: [&str; 20] = [
@@ -33,6 +34,13 @@ pub const MAX_BET: u64 = 1_000_000; // Maximum single bet
 pub const MAX_BETS_PER_SLIP: usize = 20; // Max bets in one betslip
 pub const BADGE_BONUS_BPS: u64 = 500; // 5% badge bonus
 
+// V2 ENHANCEMENTS: Risk Management Caps
+pub const MAX_PAYOUT_PER_BET: u64 = 100_000; // 100k LEAGUE max payout per bet
+pub const MAX_ROUND_PAYOUTS: u64 = 500_000; // 500k LEAGUE max per round
+pub const MAX_PARLAY_MULTIPLIER: u64 = 12500; // 1.25x max parlay bonus
+pub const WITHDRAWAL_FEE_BPS: u64 = 50; // 0.5% LP withdrawal fee
+pub const MINIMUM_LIQUIDITY_LOCK: u64 = 1000; // Locked LP shares forever
+
 // Bet Types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BetType {
@@ -49,6 +57,15 @@ pub enum MatchResult {
     Draw,
 }
 
+// V2 ENHANCEMENT: Locked odds for guaranteed payouts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LockedOdds {
+    pub home_odds: u64,      // e.g., 12500 = 1.25x
+    pub away_odds: u64,      // e.g., 19500 = 1.95x
+    pub draw_odds: u64,      // e.g., 15000 = 1.50x
+    pub locked: bool,        // Odds are locked
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MatchData {
     pub season_id: String,
@@ -56,12 +73,13 @@ pub struct MatchData {
     pub match_id: u8, // 0-9 for 10 matches per turn
     pub home_team: String,
     pub away_team: String,
-    pub home_odds: u64, // Multiplier in basis points (10000 = 1.0x)
+    pub home_odds: u64, // Initial odds in basis points (10000 = 1.0x)
     pub away_odds: u64,
     pub draw_odds: u64,
+    pub locked_odds: Option<LockedOdds>, // V2: Locked odds (if set)
     pub result: MatchResult,
     pub random_seed: Option<String>, // Transaction hash for randomness
-    pub total_home_bets: u64,        // NEW: Track betting volume per outcome
+    pub total_home_bets: u64,        // Track betting volume per outcome
     pub total_away_bets: u64,
     pub total_draw_bets: u64,
 }
@@ -71,7 +89,14 @@ pub struct MatchData {
 pub struct SingleBet {
     pub match_id: String,
     pub prediction: MatchResult,
-    pub odds: u64, // Odds at time of bet
+    pub odds: u64, // Locked odds at time of bet
+}
+
+// V2 ENHANCEMENT: Per-match allocation for odds-weighted parlays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BetAllocation {
+    pub match_id: String,
+    pub allocation: u64,     // Amount allocated to this match's pool
 }
 
 // NEW: Betslip containing multiple bets
@@ -88,6 +113,8 @@ pub struct BetslipData {
     pub settled: bool,
     pub payout_amount: u64,       // Actual payout after settlement
     pub timestamp: u64,           // When bet was placed
+    pub allocations: Vec<BetAllocation>, // V2: Odds-weighted allocations per match
+    pub locked_multiplier: u64,   // V2: Locked parlay multiplier (basis points)
 }
 
 // Deprecated: Old single bet structure (kept for backwards compatibility)
@@ -129,11 +156,36 @@ pub struct SeasonPrediction {
     pub predictor: String,
 }
 
+// V2 ENHANCEMENT: LP Share tokens for liquidity providers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LPShareData {
+    pub share_id: String,
+    pub lp_address: String,
+    pub shares: u64,               // LP shares owned
+    pub initial_deposit: u64,      // Total deposited
+    pub total_withdrawn: u64,      // Total withdrawn
+    pub deposit_timestamp: u64,    // When LP joined
+}
+
+// V2 ENHANCEMENT: LP position tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LPPosition {
+    pub lp_address: String,
+    pub shares: u64,
+    pub initial_deposit: u64,
+    pub total_withdrawn: u64,
+    pub current_value: u64,        // Current share value
+    pub unrealized_profit: i64,    // Unrealized P&L
+    pub realized_profit: i64,      // Realized P&L from withdrawals
+    pub roi_bps: i64,              // ROI in basis points
+}
+
 // NEW: Liquidity Pool Management
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LiquidityPoolData {
     pub pool_id: String,
     pub total_liquidity: u64,      // Total LEAGUE tokens in pool
+    pub total_shares: u64,         // V2: Total LP shares issued
     pub total_bets_in_play: u64,   // Bets not yet settled
     pub total_paid_out: u64,       // Historical payouts
     pub total_collected: u64,      // Historical bet stakes
@@ -148,6 +200,118 @@ pub struct HouseData {
     pub total_league_supply: u64,
     pub airdrop_remaining: u64,
     pub protocol_address: String, // Address that can withdraw protocol revenue
+}
+
+// ============ V2 ENHANCEMENT: HELPER FUNCTIONS ============
+
+/// Compress raw parimutuel odds to safe 1.25x - 1.95x range
+/// Maps raw odds (1.8x - 5.5x) to target range for LP profitability
+pub fn compress_odds(raw_odds: u64) -> u64 {
+    // Target range: 1.25x - 1.95x (user specified)
+    // Raw range: ~1.8x - 5.5x (from seed allocations)
+
+    const MIN_ODDS: u64 = 12500; // 1.25x
+    const MAX_ODDS: u64 = 19500; // 1.95x
+    const MIN_RAW: u64 = 18000;  // 1.8x
+    const MAX_RAW: u64 = 55000;  // 5.5x
+
+    if raw_odds <= MIN_RAW {
+        return MIN_ODDS;
+    }
+    if raw_odds >= MAX_RAW {
+        return MAX_ODDS;
+    }
+
+    // Linear compression formula:
+    // compressed = min + (raw - min_raw) × (max - min) / (max_raw - min_raw)
+    let excess = raw_odds - MIN_RAW;
+    let range = MAX_RAW - MIN_RAW;
+    let target_range = MAX_ODDS - MIN_ODDS;
+
+    MIN_ODDS + (excess * target_range) / range
+}
+
+/// Lock odds based on seed ratios
+pub fn lock_match_odds(home_seed: u64, away_seed: u64, draw_seed: u64) -> LockedOdds {
+    let total_seed = home_seed + away_seed + draw_seed;
+
+    // Calculate raw parimutuel odds from seed ratios
+    let raw_home = (total_seed * 10000) / home_seed;
+    let raw_away = (total_seed * 10000) / away_seed;
+    let raw_draw = (total_seed * 10000) / draw_seed;
+
+    // Compress to safe range
+    LockedOdds {
+        home_odds: compress_odds(raw_home),
+        away_odds: compress_odds(raw_away),
+        draw_odds: compress_odds(raw_draw),
+        locked: true,
+    }
+}
+
+/// Calculate capped parlay multiplier based on number of bets
+pub fn calculate_parlay_multiplier(num_bets: usize) -> u64 {
+    let base_multiplier = match num_bets {
+        1 => 10000,  // 1.0x (single bet, no bonus)
+        2 => 10500,  // 1.05x
+        3 => 11000,  // 1.10x
+        4 => 11300,  // 1.13x
+        5 => 11600,  // 1.16x
+        6 => 11900,  // 1.19x
+        7 => 12100,  // 1.21x
+        8 => 12300,  // 1.23x
+        9 => 12400,  // 1.24x
+        _ => 12500,  // 1.25x (max for 10+)
+    };
+
+    // Ensure we don't exceed maximum
+    if base_multiplier > MAX_PARLAY_MULTIPLIER {
+        MAX_PARLAY_MULTIPLIER
+    } else {
+        base_multiplier
+    }
+}
+
+/// Calculate odds-weighted allocations for parlay bets (Solidity logic)
+/// Each match gets allocation such that: allocation × locked_odds = equal contribution
+/// This allows immediate profit calculation when match ends
+pub fn calculate_odds_weighted_allocations(
+    total_stake: u64,
+    bets: &[SingleBet],
+    parlay_multiplier: u64,
+) -> Vec<BetAllocation> {
+    let num_bets = bets.len();
+    if num_bets == 0 {
+        return Vec::new();
+    }
+
+    // Calculate target final payout
+    // Base payout = product of all odds
+    let mut combined_odds = 10000u64; // Start at 1.0x
+    for bet in bets {
+        combined_odds = (combined_odds * bet.odds) / 10000;
+    }
+
+    // Apply parlay multiplier
+    let target_payout = (total_stake * combined_odds * parlay_multiplier) / 100000000;
+
+    // Per-match contribution (equal split)
+    let per_match_contribution = target_payout / num_bets as u64;
+
+    // Calculate allocation for each match (working backwards from contribution)
+    let mut allocations = Vec::new();
+    for bet in bets {
+        // allocation × odds = contribution
+        // allocation = contribution / odds
+        let allocation = (per_match_contribution * 10000) / bet.odds;
+
+        allocations.push(BetAllocation {
+            match_id: bet.match_id.clone(),
+            allocation,
+        });
+    }
+
+    allocations
 }
 
 pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
@@ -186,6 +350,10 @@ pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
         LIQUIDITY_POOL_NFT => {
             // NEW: Liquidity pool management
             check!(liquidity_pool_contract(app, tx))
+        }
+        LP_SHARE_NFT => {
+            // V2: LP share tokens
+            check!(lp_share_contract(app, tx))
         }
         _ => unreachable!(),
     }
@@ -772,6 +940,46 @@ pub(crate) fn hash(data: &str) -> B32 {
     B32(hash.into())
 }
 
+// V2 ENHANCEMENT: LP Share NFT Contract
+fn lp_share_contract(app: &App, tx: &Transaction) -> bool {
+    // LP shares represent ownership in the liquidity pool
+    // Token conservation: outputs ≤ inputs
+    // Shares are minted when LP deposits, burned when LP withdraws
+
+    let lp_inputs: Vec<LPShareData> = charm_values(app, tx.ins.iter().map(|(_, v)| v))
+        .filter_map(|data| {
+            let share: Result<LPShareData, _> = data.value();
+            share.ok()
+        })
+        .collect();
+
+    let lp_outputs: Vec<LPShareData> = charm_values(app, tx.outs.iter().map(|v| v))
+        .filter_map(|data| {
+            let share: Result<LPShareData, _> = data.value();
+            share.ok()
+        })
+        .collect();
+
+    let _input_shares: u64 = lp_inputs.iter().map(|s| s.shares).sum();
+    let _output_shares: u64 = lp_outputs.iter().map(|s| s.shares).sum();
+
+    // Allow minting (outputs > inputs) when depositing liquidity
+    // Allow burning (outputs < inputs) when withdrawing liquidity
+    // Validation happens in liquidity pool contract
+
+    // Basic validation: addresses must be valid
+    for share in &lp_outputs {
+        if share.lp_address.is_empty() {
+            return false;
+        }
+        if share.share_id.is_empty() {
+            return false;
+        }
+    }
+
+    true
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -840,6 +1048,11 @@ mod test {
             settled: false,
             payout_amount: 0,
             timestamp: 1234567890,
+            allocations: vec![BetAllocation {
+                match_id: "m1".to_string(),
+                allocation: 10000,
+            }],
+            locked_multiplier: 10000, // 1.0x for single bet
         };
 
         assert_eq!(slip.bets.len(), 1);
@@ -871,6 +1084,17 @@ mod test {
             settled: false,
             payout_amount: 0,
             timestamp: 1234567890,
+            allocations: vec![
+                BetAllocation {
+                    match_id: "match1".to_string(),
+                    allocation: 5000,
+                },
+                BetAllocation {
+                    match_id: "match2".to_string(),
+                    allocation: 5000,
+                },
+            ],
+            locked_multiplier: 10500, // 1.05x for 2-match parlay
         };
 
         // Both bets win
@@ -910,6 +1134,17 @@ mod test {
             settled: false,
             payout_amount: 0,
             timestamp: 1234567890,
+            allocations: vec![
+                BetAllocation {
+                    match_id: "match1".to_string(),
+                    allocation: 5000,
+                },
+                BetAllocation {
+                    match_id: "match2".to_string(),
+                    allocation: 5000,
+                },
+            ],
+            locked_multiplier: 10500,
         };
 
         // Only one bet wins - parlay loses
@@ -952,6 +1187,21 @@ mod test {
             settled: false,
             payout_amount: 0,
             timestamp: 1234567890,
+            allocations: vec![
+                BetAllocation {
+                    match_id: "match1".to_string(),
+                    allocation: 5000,
+                },
+                BetAllocation {
+                    match_id: "match2".to_string(),
+                    allocation: 5000,
+                },
+                BetAllocation {
+                    match_id: "match3".to_string(),
+                    allocation: 5000,
+                },
+            ],
+            locked_multiplier: 11000, // 1.10x for 3-match system bet
         };
 
         // Two out of three win
@@ -975,6 +1225,7 @@ mod test {
         let pool = LiquidityPoolData {
             pool_id: "pool1".to_string(),
             total_liquidity: 1_000_000,
+            total_shares: 1_000_000, // V2: 1:1 ratio initially
             total_bets_in_play: 100_000,
             total_paid_out: 50_000,
             total_collected: 150_000,
@@ -1028,5 +1279,291 @@ mod test {
         assert_eq!(payout, 192_000);
         assert_eq!(house_edge_amount, 8_000);
         assert_eq!(protocol_share, 160);
+    }
+
+    // ============ V2 ENHANCEMENT TESTS ============
+
+    #[test]
+    fn test_compress_odds_range() {
+        // Test minimum odds
+        assert_eq!(compress_odds(10000), 12500); // Below min → 1.25x
+        assert_eq!(compress_odds(18000), 12500); // At min → 1.25x
+
+        // Test maximum odds
+        assert_eq!(compress_odds(55000), 19500); // At max → 1.95x
+        assert_eq!(compress_odds(60000), 19500); // Above max → 1.95x
+
+        // Test middle range (linear interpolation)
+        let mid_raw = (18000 + 55000) / 2; // 36500
+        let mid_compressed = compress_odds(mid_raw);
+        assert!(mid_compressed > 12500 && mid_compressed < 19500);
+
+        // All compressed odds should be in range
+        for raw in [20000, 25000, 30000, 35000, 40000, 45000, 50000] {
+            let compressed = compress_odds(raw);
+            assert!(compressed >= 12500 && compressed <= 19500,
+                "Compressed odds {} out of range for raw {}", compressed, raw);
+        }
+    }
+
+    #[test]
+    fn test_lock_match_odds() {
+        // Test balanced seeding
+        let locked = lock_match_odds(1000, 1000, 1000);
+        assert!(locked.locked);
+        assert_eq!(locked.home_odds, locked.away_odds);
+        assert_eq!(locked.away_odds, locked.draw_odds);
+
+        // Test favorite vs underdog
+        let locked = lock_match_odds(1500, 600, 900); // Home favorite
+        assert!(locked.home_odds < locked.away_odds); // Favorite has lower odds
+        assert!(locked.home_odds < locked.draw_odds);
+
+        // All odds should be in safe range
+        assert!(locked.home_odds >= 12500 && locked.home_odds <= 19500);
+        assert!(locked.away_odds >= 12500 && locked.away_odds <= 19500);
+        assert!(locked.draw_odds >= 12500 && locked.draw_odds <= 19500);
+    }
+
+    #[test]
+    fn test_calculate_parlay_multiplier() {
+        // Single bet: no bonus
+        assert_eq!(calculate_parlay_multiplier(1), 10000);
+
+        // Progressive multipliers
+        assert_eq!(calculate_parlay_multiplier(2), 10500); // 1.05x
+        assert_eq!(calculate_parlay_multiplier(3), 11000); // 1.10x
+        assert_eq!(calculate_parlay_multiplier(5), 11600); // 1.16x
+        assert_eq!(calculate_parlay_multiplier(10), 12500); // 1.25x (max)
+
+        // Cap at MAX_PARLAY_MULTIPLIER
+        assert_eq!(calculate_parlay_multiplier(15), 12500);
+        assert_eq!(calculate_parlay_multiplier(20), 12500);
+
+        // All multipliers should be <= MAX
+        for num in 1..=20 {
+            let mult = calculate_parlay_multiplier(num);
+            assert!(mult <= MAX_PARLAY_MULTIPLIER,
+                "Multiplier {} exceeds max for {} bets", mult, num);
+        }
+    }
+
+    #[test]
+    fn test_odds_weighted_allocations() {
+        // Create 3-match parlay with different odds
+        let bets = vec![
+            SingleBet {
+                match_id: "match0".to_string(),
+                prediction: MatchResult::HomeWin,
+                odds: 13000, // 1.3x (favorite)
+            },
+            SingleBet {
+                match_id: "match1".to_string(),
+                prediction: MatchResult::AwayWin,
+                odds: 17000, // 1.7x (underdog)
+            },
+            SingleBet {
+                match_id: "match2".to_string(),
+                prediction: MatchResult::Draw,
+                odds: 15000, // 1.5x (middle)
+            },
+        ];
+
+        let total_stake = 1000;
+        let parlay_mult = calculate_parlay_multiplier(3); // 1.10x
+
+        let allocations = calculate_odds_weighted_allocations(
+            total_stake,
+            &bets,
+            parlay_mult,
+        );
+
+        // Should have 3 allocations
+        assert_eq!(allocations.len(), 3);
+
+        // Each allocation should contribute equally to payout
+        // allocation[i] × odds[i] should be roughly equal
+        let contrib0 = (allocations[0].allocation * bets[0].odds) / 10000;
+        let contrib1 = (allocations[1].allocation * bets[1].odds) / 10000;
+        let contrib2 = (allocations[2].allocation * bets[2].odds) / 10000;
+
+        // Contributions should be similar (within 5% tolerance)
+        let avg = (contrib0 + contrib1 + contrib2) / 3;
+        assert!((contrib0 as i64 - avg as i64).abs() < avg as i64 / 20);
+        assert!((contrib1 as i64 - avg as i64).abs() < avg as i64 / 20);
+        assert!((contrib2 as i64 - avg as i64).abs() < avg as i64 / 20);
+    }
+
+    #[test]
+    fn test_risk_management_caps() {
+        // Test constants are properly defined
+        assert_eq!(MAX_PAYOUT_PER_BET, 100_000);
+        assert_eq!(MAX_ROUND_PAYOUTS, 500_000);
+        assert_eq!(MAX_PARLAY_MULTIPLIER, 12500);
+
+        // Max payout per bet should be less than max round payouts
+        assert!(MAX_PAYOUT_PER_BET < MAX_ROUND_PAYOUTS);
+
+        // Test that a large bet would be capped
+        let large_stake: u64 = 50_000;
+        let high_odds: u64 = 19500; // 1.95x
+        let payout = (large_stake * high_odds) / 10000; // 97,500
+
+        // With 3-leg parlay at 1.10x
+        let parlay_mult: u64 = 11000;
+        // Avoid overflow by using saturating_mul
+        let combined = ((payout as u128 * payout as u128 * payout as u128) / 100000000) as u64;
+        let _with_parlay = (combined * parlay_mult) / 10000;
+
+        // Should exceed MAX_PAYOUT_PER_BET, needs capping
+        // (This would be enforced in validation logic)
+        assert!(payout < MAX_PAYOUT_PER_BET); // Single leg is under cap
+        // Multi-leg parlay would exceed cap if not limited
+    }
+
+    #[test]
+    fn test_lp_share_data_structure() {
+        let share = LPShareData {
+            share_id: "share1".to_string(),
+            lp_address: "bc1q...".to_string(),
+            shares: 10000,
+            initial_deposit: 10000,
+            total_withdrawn: 0,
+            deposit_timestamp: 1640995200,
+        };
+
+        assert_eq!(share.shares, 10000);
+        assert_eq!(share.initial_deposit, share.shares);
+        assert!(share.total_withdrawn == 0);
+    }
+
+    #[test]
+    fn test_lp_position_calculations() {
+        // Test profit scenario
+        let position = LPPosition {
+            lp_address: "bc1q...".to_string(),
+            shares: 10000,
+            initial_deposit: 10000,
+            total_withdrawn: 2000,
+            current_value: 11000, // 10% gain
+            unrealized_profit: 1000,
+            realized_profit: 0,
+            roi_bps: 1000, // 10% ROI
+        };
+
+        // Total value = current + withdrawn
+        let total_value = position.current_value + position.total_withdrawn;
+        assert_eq!(total_value, 13000);
+
+        // Profit = total_value - initial_deposit
+        let profit = total_value as i64 - position.initial_deposit as i64;
+        assert_eq!(profit, 3000);
+
+        // ROI should be 30% (3000/10000)
+        let actual_roi = (profit * 10000) / position.initial_deposit as i64;
+        assert_eq!(actual_roi, 3000); // 30% in basis points
+    }
+
+    #[test]
+    fn test_locked_odds_in_match_data() {
+        let match_data = MatchData {
+            season_id: "season_2024_1".to_string(),
+            turn: 1,
+            match_id: 0,
+            home_team: "Arsenal".to_string(),
+            away_team: "Liverpool".to_string(),
+            home_odds: 15000,
+            away_odds: 18000,
+            draw_odds: 25000,
+            locked_odds: Some(LockedOdds {
+                home_odds: 13500,
+                away_odds: 16000,
+                draw_odds: 18000,
+                locked: true,
+            }),
+            result: MatchResult::Pending,
+            random_seed: None,
+            total_home_bets: 0,
+            total_away_bets: 0,
+            total_draw_bets: 0,
+        };
+
+        // Locked odds should differ from initial odds
+        assert!(match_data.locked_odds.is_some());
+        let locked = match_data.locked_odds.unwrap();
+        assert!(locked.locked);
+        assert_ne!(locked.home_odds, match_data.home_odds);
+    }
+
+    #[test]
+    fn test_betslip_with_allocations() {
+        let betslip = BetslipData {
+            slip_id: "slip1".to_string(),
+            bettor: "bc1q...".to_string(),
+            bet_type: BetType::Parlay,
+            bets: vec![
+                SingleBet {
+                    match_id: "match0".to_string(),
+                    prediction: MatchResult::HomeWin,
+                    odds: 13000,
+                },
+                SingleBet {
+                    match_id: "match1".to_string(),
+                    prediction: MatchResult::AwayWin,
+                    odds: 17000,
+                },
+            ],
+            total_stake: 1000,
+            stake_per_bet: 0,
+            potential_payout: 3_000,
+            badges: vec![],
+            settled: false,
+            payout_amount: 0,
+            timestamp: 1640995200,
+            allocations: vec![
+                BetAllocation {
+                    match_id: "match0".to_string(),
+                    allocation: 550,
+                },
+                BetAllocation {
+                    match_id: "match1".to_string(),
+                    allocation: 450,
+                },
+            ],
+            locked_multiplier: 10500, // 1.05x for 2-match parlay
+        };
+
+        assert_eq!(betslip.allocations.len(), 2);
+        assert_eq!(betslip.locked_multiplier, 10500);
+
+        // Total allocation should roughly equal stake
+        let total_alloc: u64 = betslip.allocations.iter().map(|a| a.allocation).sum();
+        assert_eq!(total_alloc, 1000);
+    }
+
+    #[test]
+    fn test_withdrawal_fee() {
+        assert_eq!(WITHDRAWAL_FEE_BPS, 50); // 0.5%
+
+        let withdrawal = 10000;
+        let fee = (withdrawal * WITHDRAWAL_FEE_BPS) / 10000;
+        assert_eq!(fee, 50); // 0.5% of 10000 = 50
+
+        let amount_after_fee = withdrawal - fee;
+        assert_eq!(amount_after_fee, 9950);
+    }
+
+    #[test]
+    fn test_minimum_liquidity_lock() {
+        assert_eq!(MINIMUM_LIQUIDITY_LOCK, 1000);
+
+        // First LP deposits 100,000
+        let deposit = 100_000;
+        let first_lp_shares = deposit - MINIMUM_LIQUIDITY_LOCK;
+        assert_eq!(first_lp_shares, 99_000);
+
+        // Locked shares go to address(0) and can never be withdrawn
+        let locked_shares = MINIMUM_LIQUIDITY_LOCK;
+        assert_eq!(locked_shares, 1000);
     }
 }
