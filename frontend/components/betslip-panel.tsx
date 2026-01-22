@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Trash2, TrendingUp, AlertCircle } from "lucide-react";
+import { X, Trash2, TrendingUp, AlertCircle, Layers } from "lucide-react";
 import { useBetslip } from "../lib/hooks/useBetslip";
-import { BetType, MIN_BET, MAX_BET } from "../lib/types/betslip";
+import { BetType, MIN_BET, MAX_BET, calculateParlayMultiplier } from "../lib/types/betslip";
 
 interface BetslipPanelProps {
   isOpen: boolean;
@@ -29,6 +29,7 @@ export function BetslipPanel({
     setBetType,
     setTotalStake,
     calculatePotentialPayout,
+    calculateOddsWeightedAllocations, // V2: For odds-weighted allocation display
     submitBetslip,
   } = useBetslip();
 
@@ -67,6 +68,15 @@ export function BetslipPanel({
   );
 
   const potentialProfit = potentialPayout - totalStake;
+
+  // V2: Calculate parlay multiplier and allocations for display
+  const parlayMultiplier = betType === "Parlay" && betslip.length > 1
+    ? calculateParlayMultiplier(betslip.length)
+    : 10000;
+
+  const allocations = betType === "Parlay" && betslip.length > 1 && totalStake > 0
+    ? calculateOddsWeightedAllocations(totalStake, betslip, parlayMultiplier)
+    : [];
 
   if (!isOpen) return null;
 
@@ -132,35 +142,55 @@ export function BetslipPanel({
           </div>
         ) : (
           <div className="p-4 space-y-3">
-            {betslip.map((bet, index) => (
-              <motion.div
-                key={bet.match_id}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: 100 }}
-                className="bg-white/5 rounded-lg p-3 relative group"
-              >
-                <button
-                  onClick={() => removeBet(bet.match_id)}
-                  className="absolute top-2 right-2 p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-all"
-                >
-                  <X className="w-4 h-4 text-red-400" />
-                </button>
+            {betslip.map((bet, index) => {
+              // Find allocation for this bet (V2)
+              const allocation = allocations.find(a => a.match_id === bet.match_id);
 
-                <div className="text-xs text-white/40 mb-1">
-                  Match {bet.match_id}
-                </div>
-                <div className="text-sm font-medium text-white mb-2">
-                  {bet.prediction}
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-white/40">Odds</span>
-                  <span className="text-yellow-400 font-medium">
-                    {(bet.odds / 10000).toFixed(2)}x
-                  </span>
-                </div>
-              </motion.div>
-            ))}
+              return (
+                <motion.div
+                  key={bet.match_id}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: 100 }}
+                  className="bg-white/5 rounded-lg p-3 relative group"
+                >
+                  <button
+                    onClick={() => removeBet(bet.match_id)}
+                    className="absolute top-2 right-2 p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded transition-all"
+                  >
+                    <X className="w-4 h-4 text-red-400" />
+                  </button>
+
+                  <div className="text-xs text-white/40 mb-1">
+                    Match {bet.match_id}
+                  </div>
+                  <div className="text-sm font-medium text-white mb-2">
+                    {bet.prediction}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-white/40">Odds</span>
+                      <span className="text-yellow-400 font-medium">
+                        {(bet.odds / 10000).toFixed(2)}x
+                      </span>
+                    </div>
+
+                    {/* V2: Show allocation for parlay bets */}
+                    {allocation && betType === "Parlay" && (
+                      <div className="flex justify-between items-center text-xs pt-1 border-t border-white/5">
+                        <span className="text-white/40 flex items-center gap-1">
+                          <Layers className="w-3 h-3" />
+                          Allocation
+                        </span>
+                        <span className="text-blue-400 font-medium">
+                          {allocation.allocation.toLocaleString()} LEAGUE
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -215,6 +245,16 @@ export function BetslipPanel({
                   <span>
                     {Math.floor(totalStake / betslip.length).toLocaleString()}{" "}
                     LEAGUE
+                  </span>
+                </div>
+              )}
+
+              {/* V2: Show parlay multiplier */}
+              {betType === "Parlay" && betslip.length > 1 && (
+                <div className="flex justify-between text-white/60">
+                  <span>Parlay Boost</span>
+                  <span className="text-blue-400 font-medium">
+                    +{((parlayMultiplier - 10000) / 100).toFixed(0)}% ({(parlayMultiplier / 10000).toFixed(2)}x)
                   </span>
                 </div>
               )}

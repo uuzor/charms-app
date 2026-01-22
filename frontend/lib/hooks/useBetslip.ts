@@ -6,11 +6,15 @@ import {
   BetType,
   SingleBet,
   MatchResult,
+  BetAllocation,
   MIN_BET,
   MAX_BET,
   MAX_BETS_PER_SLIP,
+  MAX_PAYOUT_PER_BET,
+  MAX_PARLAY_MULTIPLIER,
   HOUSE_EDGE_BPS,
   BADGE_BONUS_BPS,
+  calculateParlayMultiplier,
 } from "../types/betslip";
 
 export function useBetslip() {
@@ -65,6 +69,37 @@ export function useBetslip() {
     setBetType("Single");
   }, []);
 
+  // V2: Calculate odds-weighted allocations (Solidity logic)
+  const calculateOddsWeightedAllocations = useCallback((
+    totalStake: number,
+    bets: SingleBet[],
+    parlayMultiplier: number
+  ): BetAllocation[] => {
+    if (bets.length === 0) return [];
+
+    // Calculate target final payout
+    let combinedOdds = 10000;
+    for (const bet of bets) {
+      combinedOdds = Math.floor((combinedOdds * bet.odds) / 10000);
+    }
+    const targetPayout = Math.floor((totalStake * combinedOdds * parlayMultiplier) / 100000000);
+
+    // Per-match contribution (equal split of target payout)
+    const perMatchContribution = Math.floor(targetPayout / bets.length);
+
+    // Calculate allocation for each match (working backwards from odds)
+    const allocations: BetAllocation[] = [];
+    for (const bet of bets) {
+      const allocation = Math.floor((perMatchContribution * 10000) / bet.odds);
+      allocations.push({
+        match_id: bet.match_id,
+        allocation,
+      });
+    }
+
+    return allocations;
+  }, []);
+
   // Calculate potential payout based on bet type
   const calculatePotentialPayout = useCallback((
     stake: number,
@@ -108,7 +143,13 @@ export function useBetslip() {
         // Apply house edge to combined odds
         combinedOdds = combinedOdds - Math.floor((combinedOdds * HOUSE_EDGE_BPS) / 10000);
 
-        return Math.floor((stake * combinedOdds) / 10000);
+        // V2: Apply capped parlay multiplier
+        const parlayMultiplier = calculateParlayMultiplier(betslip.length);
+        const rawPayout = Math.floor((stake * combinedOdds) / 10000);
+        const boostedPayout = Math.floor((rawPayout * parlayMultiplier) / 10000);
+
+        // V2: Cap at MAX_PAYOUT_PER_BET
+        return Math.min(boostedPayout, MAX_PAYOUT_PER_BET);
       }
 
       case "SystemBet": {
@@ -304,6 +345,7 @@ export function useBetslip() {
     setBetType,
     setTotalStake,
     calculatePotentialPayout,
+    calculateOddsWeightedAllocations, // V2: For displaying allocations
     submitBetslip,
     fetchUserBetslips,
   };

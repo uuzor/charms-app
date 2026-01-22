@@ -88,6 +88,7 @@ export function parseMatchCharm(charmData: any) {
       total_home_bets: charmData.total_home_bets || 0,
       total_away_bets: charmData.total_away_bets || 0,
       total_draw_bets: charmData.total_draw_bets || 0,
+      locked_odds: charmData.locked_odds || null,  // V2: Locked odds support
     };
   } catch {
     return null;

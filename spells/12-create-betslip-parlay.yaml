@@ -25,6 +25,7 @@ ins:
         house_balance: ${current_house_balance}
         is_active: true
         min_liquidity: ${min_liquidity}
+        total_shares: ${current_total_shares}  # V2: LP share tracking
 
 outs:
   # Betslip NFT with multiple bets (parlay)
@@ -47,11 +48,20 @@ outs:
           # Can include up to 20 bets
         total_stake: ${total_stake}
         stake_per_bet: 0  # Not used for parlay
-        potential_payout: ${potential_payout}  # Combined odds * stake * badge_bonus * (1 - house_edge)
+        potential_payout: ${potential_payout}  # Combined odds * stake * parlay_multiplier * (1 - house_edge)
         badges: ${badges_array}
         settled: false
         payout_amount: 0
         timestamp: ${timestamp}
+        # V2: Odds-weighted allocations and capped multiplier
+        allocations:
+          - match_id: "${match_id_1}"
+            allocation: ${allocation_1}  # Amount allocated to this match
+          - match_id: "${match_id_2}"
+            allocation: ${allocation_2}
+          - match_id: "${match_id_3}"
+            allocation: ${allocation_3}
+        locked_multiplier: ${locked_multiplier}  # Capped parlay multiplier (10000-12500)
 
   # Updated liquidity pool
   - address: ${house_address}
@@ -66,6 +76,7 @@ outs:
         house_balance: ${current_house_balance}
         is_active: true
         min_liquidity: ${min_liquidity}
+        total_shares: ${current_total_shares}  # V2: LP share tracking
 
   # Tokens to house pool
   - address: ${house_address}

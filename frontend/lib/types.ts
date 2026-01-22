@@ -1,5 +1,13 @@
 export type MatchResult = "Pending" | "HomeWin" | "AwayWin" | "Draw";
 
+// V2: Locked odds for guaranteed payouts (1.25x - 1.95x range)
+export interface LockedOdds {
+  home_odds: number; // e.g., 12500 = 1.25x
+  away_odds: number; // e.g., 19500 = 1.95x
+  draw_odds: number; // e.g., 15000 = 1.50x
+  locked: boolean;
+}
+
 export interface MatchData {
   seasonId: string;
   turn: number;
@@ -11,6 +19,8 @@ export interface MatchData {
   drawOdds: number;
   result: MatchResult;
   randomSeed?: string;
+  // V2: Locked odds for guaranteed payouts
+  lockedOdds?: LockedOdds | null;
 }
 
 export interface BetData {

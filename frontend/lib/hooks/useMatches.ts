@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { extractAndVerifySpell } from "charms-js";
 import { parseMatchCharm, fetchTransactionHex } from "./useCharms";
-import { MatchData as MatchCharmData, MatchResult } from "../types/betslip";
+import { MatchData as MatchCharmData, MatchResult, LockedOdds } from "../types/betslip";
 
 // Convert lib/types format to old MatchData format (for backward compatibility)
 interface MatchData {
@@ -14,6 +14,8 @@ interface MatchData {
   awayOdds: number;
   drawOdds: number;
   result: MatchResult;
+  // V2: Locked odds for guaranteed payouts
+  lockedOdds: LockedOdds | null;
 }
 
 // Fetch matches from Charms contract using Bitcoin transactions
@@ -74,6 +76,7 @@ export function useMatches(seasonId: string, turn: number) {
               awayOdds: matchData.away_odds,
               drawOdds: matchData.draw_odds,
               result: matchData.result,
+              lockedOdds: matchData.locked_odds,
             });
           }
         }
@@ -95,6 +98,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 22000,
           drawOdds: 32000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 14500, // 1.45x
+            away_odds: 16500, // 1.65x
+            draw_odds: 19000, // 1.90x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -106,6 +115,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 27000,
           drawOdds: 35000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 12500, // 1.25x (favorite)
+            away_odds: 19500, // 1.95x (underdog)
+            draw_odds: 18500, // 1.85x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -117,6 +132,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 21000,
           drawOdds: 33000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 15000, // 1.50x
+            away_odds: 15500, // 1.55x
+            draw_odds: 18000, // 1.80x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -128,6 +149,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 24000,
           drawOdds: 34000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 13500, // 1.35x
+            away_odds: 17500, // 1.75x
+            draw_odds: 19000, // 1.90x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -139,6 +166,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 20000,
           drawOdds: 32000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 15500, // 1.55x
+            away_odds: 15500, // 1.55x
+            draw_odds: 17500, // 1.75x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -150,6 +183,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 19000,
           drawOdds: 31000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 16000, // 1.60x
+            away_odds: 14500, // 1.45x
+            draw_odds: 17000, // 1.70x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -161,6 +200,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 22500,
           drawOdds: 33000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 14000, // 1.40x
+            away_odds: 16500, // 1.65x
+            draw_odds: 18500, // 1.85x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -172,6 +217,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 20500,
           drawOdds: 32000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 15200, // 1.52x
+            away_odds: 15800, // 1.58x
+            draw_odds: 17500, // 1.75x
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -183,6 +234,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 25000,
           drawOdds: 35000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 12800, // 1.28x
+            away_odds: 18500, // 1.85x
+            draw_odds: 19500, // 1.95x (max)
+            locked: true,
+          },
         },
         {
           seasonId,
@@ -194,6 +251,12 @@ export function useMatches(seasonId: string, turn: number) {
           awayOdds: 23500,
           drawOdds: 34000,
           result: "Pending",
+          lockedOdds: {
+            home_odds: 13800, // 1.38x
+            away_odds: 17200, // 1.72x
+            draw_odds: 19000, // 1.90x
+            locked: true,
+          },
         },
       ];
 

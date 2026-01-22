@@ -1,0 +1,80 @@
+version: 8
+
+# V2: Withdraw liquidity by burning LP shares
+apps:
+  $00: t/${app_id}/${app_vk}    # LEAGUE token
+  $01: 17/${app_id}/${app_vk}   # LP_SHARE_NFT
+  $02: 16/${app_id}/${app_vk}   # LIQUIDITY_POOL_NFT
+
+ins:
+  # LP Share NFT to burn
+  - utxo_id: ${lp_share_utxo}
+    charms:
+      $01:
+        share_id: "${share_id}"
+        lp_address: "${lp_address}"
+        shares: ${current_shares}
+        initial_deposit: ${initial_deposit}
+        total_withdrawn: ${current_total_withdrawn}
+        deposit_timestamp: ${deposit_timestamp}
+
+  # Current liquidity pool state with tokens
+  - utxo_id: ${pool_utxo}
+    charms:
+      $00: ${pool_token_amount}
+      $02:
+        pool_id: "${pool_id}"
+        total_liquidity: ${current_total_liquidity}
+        total_bets_in_play: ${current_bets_in_play}
+        total_paid_out: ${current_paid_out}
+        total_collected: ${current_collected}
+        protocol_revenue: ${current_protocol_revenue}
+        house_balance: ${current_house_balance}
+        is_active: true
+        min_liquidity: ${min_liquidity}
+        total_shares: ${current_total_shares}
+
+outs:
+  # Withdrawn tokens to LP (minus 0.5% fee)
+  - address: ${lp_address}
+    charms:
+      $00: ${net_amount}  # (shares_to_burn * total_liquidity / total_shares) * (1 - 0.005)
+
+  # Updated LP Share NFT (if not fully withdrawn)
+  # Only output if remaining shares > MINIMUM_LIQUIDITY_LOCK (1000)
+  - address: ${lp_address}
+    charms:
+      $01:
+        share_id: "${share_id}"
+        lp_address: "${lp_address}"
+        shares: ${remaining_shares}  # current_shares - shares_to_burn
+        initial_deposit: ${initial_deposit}
+        total_withdrawn: ${new_total_withdrawn}  # current_total_withdrawn + net_amount
+        deposit_timestamp: ${deposit_timestamp}
+
+  # Updated liquidity pool (decreased liquidity and shares)
+  - address: ${house_address}
+    charms:
+      $02:
+        pool_id: "${pool_id}"
+        total_liquidity: ${new_total_liquidity}  # -= withdrawal_amount
+        total_bets_in_play: ${current_bets_in_play}
+        total_paid_out: ${current_paid_out}
+        total_collected: ${current_collected}
+        protocol_revenue: ${new_protocol_revenue}  # += fee_amount
+        house_balance: ${new_house_balance}  # -= net_amount
+        is_active: true
+        min_liquidity: ${min_liquidity}
+        total_shares: ${new_total_shares}  # -= shares_to_burn
+
+  # Remaining pool tokens
+  - address: ${house_address}
+    charms:
+      $00: ${remaining_pool_tokens}  # pool_token_amount - net_amount
+
+# Notes:
+# - withdrawal_amount = (shares_to_burn * total_liquidity) / total_shares
+# - fee_amount = withdrawal_amount * 0.005 (0.5%)
+# - net_amount = withdrawal_amount - fee_amount
+# - Minimum 1000 shares must remain locked (MINIMUM_LIQUIDITY_LOCK)
+# - If shares_to_burn leaves < 1000 shares, must withdraw all shares

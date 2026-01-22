@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, TrendingUp, Plus } from "lucide-react";
+import { Clock, TrendingUp, Plus, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
 import { MatchData, MatchResult } from "@/lib/types";
@@ -25,12 +25,23 @@ export function MatchCard({ match, onAddToBetslip }: MatchCardProps) {
   const handleAddToBetslip = (prediction: MatchResult) => {
     if (!onAddToBetslip) return;
 
-    const odds =
-      prediction === "HomeWin"
-        ? match.homeOdds
-        : prediction === "AwayWin"
-        ? match.awayOdds
-        : match.drawOdds;
+    // V2: Use locked odds if available, otherwise fall back to dynamic odds
+    let odds: number;
+    if (match.lockedOdds && match.lockedOdds.locked) {
+      odds =
+        prediction === "HomeWin"
+          ? match.lockedOdds.home_odds
+          : prediction === "AwayWin"
+          ? match.lockedOdds.away_odds
+          : match.lockedOdds.draw_odds;
+    } else {
+      odds =
+        prediction === "HomeWin"
+          ? match.homeOdds
+          : prediction === "AwayWin"
+          ? match.awayOdds
+          : match.drawOdds;
+    }
 
     const bet: SingleBet = {
       match_id: `${match.seasonId}_${match.turn}_${match.matchId}`,
@@ -43,6 +54,18 @@ export function MatchCard({ match, onAddToBetslip }: MatchCardProps) {
   };
 
   const getOddsDisplay = (prediction: MatchResult) => {
+    // V2: Prioritize locked odds (1.25x-1.95x range)
+    if (match.lockedOdds && match.lockedOdds.locked) {
+      const lockedOdds =
+        prediction === "HomeWin"
+          ? match.lockedOdds.home_odds
+          : prediction === "AwayWin"
+          ? match.lockedOdds.away_odds
+          : match.lockedOdds.draw_odds;
+      return formatOdds(lockedOdds);
+    }
+
+    // Fallback to dynamic odds
     const odds =
       prediction === "HomeWin"
         ? match.homeOdds
@@ -53,6 +76,9 @@ export function MatchCard({ match, onAddToBetslip }: MatchCardProps) {
     return formatOdds(odds);
   };
 
+  // Check if odds are locked
+  const hasLockedOdds = match.lockedOdds && match.lockedOdds.locked;
+
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <CardHeader className="pb-4">
@@ -61,11 +87,20 @@ export function MatchCard({ match, onAddToBetslip }: MatchCardProps) {
             <Clock className="h-4 w-4" />
             <span>Match {match.matchId + 1}</span>
           </div>
-          {match.result === "Pending" && (
-            <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
-              Live Betting
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* V2: Locked odds indicator */}
+            {hasLockedOdds && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                <Lock className="h-3 w-3" />
+                Locked Odds
+              </span>
+            )}
+            {match.result === "Pending" && (
+              <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                Live Betting
+              </span>
+            )}
+          </div>
         </div>
       </CardHeader>
 

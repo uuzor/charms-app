@@ -25,6 +25,7 @@ ins:
         house_balance: ${current_house_balance}
         is_active: true
         min_liquidity: ${min_liquidity}
+        total_shares: ${current_total_shares}  # V2: LP share tracking
 
 outs:
   # System betslip NFT (stake divided among bets)
@@ -52,6 +53,15 @@ outs:
         settled: false
         payout_amount: 0
         timestamp: ${timestamp}
+        # V2: Equal allocations for system bets, no parlay multiplier
+        allocations:
+          - match_id: "${match_id_1}"
+            allocation: ${stake_per_bet}
+          - match_id: "${match_id_2}"
+            allocation: ${stake_per_bet}
+          - match_id: "${match_id_3}"
+            allocation: ${stake_per_bet}
+        locked_multiplier: 10000  # 1.0x for system bets (no parlay boost)
 
   # Updated liquidity pool
   - address: ${house_address}
@@ -66,6 +76,7 @@ outs:
         house_balance: ${current_house_balance}
         is_active: true
         min_liquidity: ${min_liquidity}
+        total_shares: ${current_total_shares}  # V2: LP share tracking
 
   # Tokens to house pool
   - address: ${house_address}
